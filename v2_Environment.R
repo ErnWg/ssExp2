@@ -1,9 +1,9 @@
 #This version creates an experimental environment more aligned with the norbury task
 rm(list=ls())
 
-packages <- c("plyr", 'dplyr','tidyr',  "ggplot2", 'pander', 'emmeans','sjPlot', 'lmerTest', 'data.table', "ggbeeswarm",
+packages <- c("plyr", 'dplyr','tidyverse',  "ggplot2", 'pander', 'emmeans','sjPlot', 'lmerTest', 'data.table', "ggbeeswarm",
               'lmerTest',  'brms', 'BayesFactor', "gridExtra", "lsr",'ggridges','cowplot','entropy','zoo','Hmisc', 
-              'DescTools', 'magrittr', 'purrr', 'forcats', 'modelr', 'tidybayes', 'rstan' , 'loo', 'R.matlab','ggpubr')
+              'DescTools', 'magrittr', 'purrr', 'forcats', 'modelr', 'tidybayes', 'rstan' , 'loo', 'R.matlab','ggpubr','gridExtra')
 invisible(lapply(packages, require, character.only = TRUE))
 
 sigma <- 2.5
@@ -70,8 +70,8 @@ stim <- Sim.stim
 rewards <- Sim.rewards
 initR0 <- 5
 set.seed(29061996)
-theta <- runif(nSub,-50,50)
-omega <- runif(nSub,-50,50)
+theta <- runif(nSub,-20,20)
+omega <- runif(nSub,-100,100)
 tau <- runif(nSub,0.1,10)
 dA <- runif(nSub,0,1)
 dB <- runif(nSub,0,1)
@@ -113,30 +113,90 @@ sim.Theta <- rstan::sampling(simBehaviour.stan, data = param.simTheta, chains = 
 
 save(Env,param.simFull,sim.Full,param.simOmega,sim.Omega,param.simTheta,sim.Theta, file = "simFits/experimentSim.RData")
 
-#load("simFits/experimentSim.RData")
+load("simFits/experimentSim.RData")
 
 simEx.Full <- rstan::extract(sim.Full)
 simEx.Omega <- rstan::extract(sim.Omega)
 simEx.Theta <- rstan::extract(sim.Theta)
 
-#iN 
-
 #Frequency of options
 choice.Full <- simEx.Full$chosenObj[1,,,]
-prop.table(table(choice.Full))
+optimal.Freq <- prop.table(table(choice.Full))
 
-choice.Omega <- simEx.Omega$chosenObj[1,,,]
-prop.table(table(choice.Omega))
+#From full model params, index high low theta/omega
+lowTheta <- param.simFull$theta < median(param.simFull$theta)
+highTheta <- param.simFull$theta > median(param.simFull$theta)
+lowOmega <- param.simFull$omega < median(param.simFull$omega)
+highOmega <- param.simFull$omega > median(param.simFull$omega)
 
-choice.Theta <- simEx.Theta$chosenObj[1,,,]
-prop.table(table(choice.Theta))
+lowTheta.Freq <- prop.table(table(choice.Full[lowTheta,,]))
+highTheta.Freq <- prop.table(table(choice.Full[highTheta,,]))
+
+lowOmega.Freq <- prop.table(table(choice.Full[lowOmega,,]))
+highOmega.Freq <- prop.table(table(choice.Full[highOmega,,]))
+
+plotFreq <- function(table,name){
+  mat <- matrix(NA, nrow = 3, ncol = 2)
+  #row if stim, col is reward
+  mat[3,1] <- table[1]
+  mat[3,2] <- table[2]
+  mat[2,1] <- table[3]
+  mat[2,2] <- table[4]
+  mat[1,1] <- table[5]
+  mat[1,2] <- table[6]
+  df <- data.frame(mat)
+  rownames(df) <- c("0.85","0.5","0.15")
+  colnames(df) <- c("Low","High")
+  
+  df2 <- df %>% rownames_to_column() %>% gather(colname, value, -rowname) 
+  head(df2)
+  
+  plotFig <- ggplot(df2, aes(x = rowname, y = colname, fill = value)) +
+    geom_tile(color = "black") +
+    geom_text(aes(label = round(value,3)), color = "green", size = 4) +
+    labs(title=name,x="Stimulation Probabilities", y = "Reward Level") +
+    scale_fill_viridis_c(option = "inferno", guide = "none") +
+    coord_fixed()
+
+  return(plotFig)
+}
+
+plotFreq(optimal.Freq,"Optimal")
+plotFreq(lowOmega.Freq,"Low Omega")
+plotFreq(highOmega.Freq,"High Omega")
+plotFreq(lowTheta.Freq,"Low Theta")
+plotFreq(highTheta.Freq,"High Theta")
 
 
-Rmu <- simEx.Full$Rmu_ts[1,,,,]
-Rsig <- simEx.Full$Rsig_ts[1,,,,]
-Smu <- simEx.Full$Smu_ts[1,,,,]
-Ssig <- simEx.Full$Ssig_ts[1,,,,]
-simEx.Full$stimDeliver[1,1,1,]
+#Plot Reward Learning Curves
+
+#Randomly select a subject and round 
+rewardCurves <- data.frame(simEx.Full$Rmu_ts[1,1,1,,])
+
+rewardCurves.long <- gather(rewardCurves, Bandit, Reward, b1:b3)
+learningPlot <- ggplot(rewardCurves.long,aes(y=Reward,x=Trial,color=Bandit)) +
+  labs(title="High Reward Environment",x="Trial Number", y = "Estimated Rewards") +
+  geom_rect(aes(xmin=(nP1+.5), xmax=(nP1+nP2), ymin=-Inf, ymax=Inf),fill="grey",alpha=.1) +
+  geom_line(linetype = "solid")+
+  geom_point(size=2) +
+  scale_colour_manual(values = c("#cc79a7","#0070c0","#019e73"),name="Bandits",labels = c("Left","Down","Right")) +
+  theme(legend.position= c(1,1), legend.justification = c(1,1),text=element_text(size=15)) + theme(legend.position = 'none') +
+  annotate("text", x = c(nP1/2,nP2/2+nP1), y = c(10,10), label = c("Phase 1 \n (Complete Reward Feedback)", "Phase 2 \n (Sensory + No Reward Feedback)") , 
+           color="Black", size=3 , angle=0, fontface="bold") +
+  theme_classic() 
+
+learningPlot
 
 
+
+#Plot Sensory Learning Curves
+
+
+#Plot average score received
+
+scores <- simEx.Full$Score[1,,,]
+apply(scores,1,sum)/4
+
+scores.Omega <- simEx.Omega$Score[1,,,]
+apply(scores.Omega,1,sum)/4
 
