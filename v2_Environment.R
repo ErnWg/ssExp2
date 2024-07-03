@@ -167,29 +167,34 @@ plotFreq(highOmega.Freq,"High Omega")
 plotFreq(lowTheta.Freq,"Low Theta")
 plotFreq(highTheta.Freq,"High Theta")
 
+#Function for learning curves
 
-#Plot Reward Learning Curves
+plotLearnCurve <- function(data,name){
+  LearnCurves <- data.frame(data)
+  LearnCurves$Trial <- 1:nrow(data)
 
-#Randomly select a subject and round 
-rewardCurves <- data.frame(simEx.Full$Rmu_ts[1,1,1,,])
+  LearnCurves.long <- gather(LearnCurves, Bandit, Reward, X1:X6)
+    learningPlot <- ggplot(LearnCurves.long,aes(y=Reward,x=Trial,color=Bandit)) +
+    labs(title=name,x="Trial Number", y = name) +
+    geom_rect(aes(xmin=(nP1+.5), xmax=(nP1+nP2), ymin=-Inf, ymax=Inf),fill="grey",alpha=.1) +
+    geom_line(linetype = "solid")+
+    geom_point(size=1) +
+    scale_fill_viridis_c(option ="viridis")+
+    #scale_colour_manual(values = c("#cc79a7","#0070c0","#019e73"),name="Bandits",labels = c("Left","Down","Right")) +
+    theme(legend.position= c(1,1), legend.justification = c(1,1),text=element_text(size=15)) + theme(legend.position = 'none') +
+    annotate("text", x = c(nP1/2,nP2/2+nP1), y = c(1.1*max(data),1.1*max(data)), label = c("Phase 1", "Phase 2 \n (Sensory Stimulation)"), 
+            color="Black", size=3 , angle=0, fontface="bold") +
+    theme_classic() 
 
-rewardCurves.long <- gather(rewardCurves, Bandit, Reward, b1:b3)
-learningPlot <- ggplot(rewardCurves.long,aes(y=Reward,x=Trial,color=Bandit)) +
-  labs(title="High Reward Environment",x="Trial Number", y = "Estimated Rewards") +
-  geom_rect(aes(xmin=(nP1+.5), xmax=(nP1+nP2), ymin=-Inf, ymax=Inf),fill="grey",alpha=.1) +
-  geom_line(linetype = "solid")+
-  geom_point(size=2) +
-  scale_colour_manual(values = c("#cc79a7","#0070c0","#019e73"),name="Bandits",labels = c("Left","Down","Right")) +
-  theme(legend.position= c(1,1), legend.justification = c(1,1),text=element_text(size=15)) + theme(legend.position = 'none') +
-  annotate("text", x = c(nP1/2,nP2/2+nP1), y = c(10,10), label = c("Phase 1 \n (Complete Reward Feedback)", "Phase 2 \n (Sensory + No Reward Feedback)") , 
-           color="Black", size=3 , angle=0, fontface="bold") +
-  theme_classic() 
+  learningPlot
+  return(learningPlot)
+}
 
-learningPlot
-
-
-
-#Plot Sensory Learning Curves
+#Plot Learning Curves
+plotLearnCurve(simEx.Full$Rmu_ts[1,1,3,,],"Estimated Reward")
+plotLearnCurve(simEx.Full$Rsig_ts[1,1,3,,],"Estimated Reward Uncertainty")
+plotLearnCurve(simEx.Full$Smu_ts[1,1,3,,],"Estimated Stimulation Probability")
+plotLearnCurve(simEx.Full$Ssig_ts[1,1,3,,],"Estimated Stimulation Uncertainty")
 
 
 #Plot average score received
