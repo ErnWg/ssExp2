@@ -12,7 +12,7 @@ S.true <- c(0.15,0.5,0.85)
 nP1 <- 30
 nP2 <- 30
 nT <- nP1 + nP2
-nB = 6
+nB <- 6
 
 dfParams <- expand.grid(reward=R.true,stim=S.true)
 dfParams$rewardNoise <- sigma
@@ -70,9 +70,9 @@ stim <- Sim.stim
 rewards <- Sim.rewards
 initR0 <- 5
 set.seed(29061996)
-theta <- runif(nSub,-20,20)
-omega <- runif(nSub,-100,100)
-tau <- runif(nSub,0.1,10)
+theta <- runif(nSub,-5,5)
+omega <- runif(nSub,-50,50)
+tau <- runif(nSub,0.1,5)
 dA <- runif(nSub,0,1)
 dB <- runif(nSub,0,1)
 
@@ -113,7 +113,7 @@ sim.Theta <- rstan::sampling(simBehaviour.stan, data = param.simTheta, chains = 
 
 save(Env,param.simFull,sim.Full,param.simOmega,sim.Omega,param.simTheta,sim.Theta, file = "simFits/experimentSim.RData")
 
-load("simFits/experimentSim.RData")
+#load("simFits/experimentSim.RData")
 
 simEx.Full <- rstan::extract(sim.Full)
 simEx.Omega <- rstan::extract(sim.Omega)
@@ -155,7 +155,7 @@ plotFreq <- function(table,name){
     geom_tile(color = "black") +
     geom_text(aes(label = round(value,3)), color = "green", size = 4) +
     labs(title=name,x="Stimulation Probabilities", y = "Reward Level") +
-    scale_fill_viridis_c(option = "inferno", guide = "none") +
+    scale_fill_viridis_c(option = "magma", guide = "none") +
     coord_fixed()
 
   return(plotFig)
