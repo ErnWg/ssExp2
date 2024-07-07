@@ -2,7 +2,7 @@
 rm(list=ls())
 library(rstan)
 load("simFits/experimentSim.RData")
-nSub <- 10
+nSub <- 50
 simRewards <- Env[[3]][1:nSub,,,]
 simStim <- Env[[4]][1:nSub,,,]
 nRd <- dim(simRewards)[2]
@@ -30,26 +30,36 @@ func.Fit <- function(nSub,nRd,nP1,nP2,nT,nB,opt1,opt2,genObj,stanModel){
                         warmup = 2000, iter=4000,
                         seed=29061996,
                         verbose=F, save_warmup=F,
-                        control = list(adapt_delta=.85))
+                        control = list(adapt_delta=.99))
   return(fitObj)
 }
 
 #Loop to fit all models to all generated datasets
 
 Models <- c("Full","Omega","Theta")
+simData <- c("Full","Omega","Theta")
 
-for (gen in 1:length(Models)){
+
+for (gen in 1:length(simData)){
   for (fit in 1:length(Models)){
-    genObj.Name <- paste0("sim.",Models[gen])
+    genObj.Name <- paste0("sim.",simData[gen])
     genObj <- get(genObj.Name)
     fitPath <- paste0("STANmodels/hierarchical",Models[fit],".stan")
     
     print(paste("Fitting Model",fitPath,"to",genObj.Name))
     
     fit.file <- func.Fit(nSub,nRd,nP1=2,nP2=2,nT,nB,opt1,opt2,genObj,fitPath)
-    saveRDS(fit.file,file=paste0("simFits/gen",Models[gen],"_fit",Models[fit],".fit"))
+    saveRDS(fit.file,file=paste0("simFits/gen",simData[gen],"_fit",Models[fit],".fit"))
     
   }
 }
+
+#fit.file <- func.Fit(nSub,nRd,nP1=2,nP2=2,nT,nB,opt1,opt2,sim.Theta,"STANmodels/hierarchicalFull.stan")
+#saveRDS(fit.file,file="simFits/genTheta_fitTheta.fit")
+
+
+#fit.file <- func.Fit(nSub,nRd,nP1=2,nP2=2,nT,nB,opt1,opt2,sim.Theta,"STANmodels/hierarchicalTheta.stan")
+#saveRDS(fit.file,file="simFits/genTheta_fitTheta.fit")
+
 
 

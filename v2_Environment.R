@@ -113,7 +113,7 @@ sim.Theta <- rstan::sampling(simBehaviour.stan, data = param.simTheta, chains = 
 
 save(Env,param.simFull,sim.Full,param.simOmega,sim.Omega,param.simTheta,sim.Theta, file = "simFits/experimentSim.RData")
 
-#load("simFits/experimentSim.RData")
+load("simFits/experimentSim.RData")
 
 simEx.Full <- rstan::extract(sim.Full)
 simEx.Omega <- rstan::extract(sim.Omega)
@@ -155,17 +155,24 @@ plotFreq <- function(table,name){
     geom_tile(color = "black") +
     geom_text(aes(label = round(value,3)), color = "green", size = 4) +
     labs(title=name,x="Stimulation Probabilities", y = "Reward Level") +
-    scale_fill_viridis_c(option = "magma", guide = "none") +
+    scale_fill_viridis_c(option="magma",guide = "none") +
     coord_fixed()
 
   return(plotFig)
 }
 
-plotFreq(optimal.Freq,"Optimal")
-plotFreq(lowOmega.Freq,"Low Omega")
-plotFreq(highOmega.Freq,"High Omega")
-plotFreq(lowTheta.Freq,"Low Theta")
-plotFreq(highTheta.Freq,"High Theta")
+f1 <- plotFreq(optimal.Freq,"No Sensory Bias")
+f2 <- plotFreq(lowOmega.Freq,"Low Omega")
+f3 <- plotFreq(highOmega.Freq,"High Omega")
+f4 <- plotFreq(lowTheta.Freq,"Low Theta")
+f5 <- plotFreq(highTheta.Freq,"High Theta")
+
+gt <- arrangeGrob(f1,f2,f3,f4,f5,                               
+                  ncol = 3, nrow = 2, 
+                  layout_matrix = rbind(c(1,2,3), 
+                                        c(1,4,5))
+                  )
+as_ggplot(gt)
 
 #Function for learning curves
 
@@ -191,10 +198,18 @@ plotLearnCurve <- function(data,name){
 }
 
 #Plot Learning Curves
-plotLearnCurve(simEx.Full$Rmu_ts[1,1,3,,],"Estimated Reward")
-plotLearnCurve(simEx.Full$Rsig_ts[1,1,3,,],"Estimated Reward Uncertainty")
-plotLearnCurve(simEx.Full$Smu_ts[1,1,3,,],"Estimated Stimulation Probability")
-plotLearnCurve(simEx.Full$Ssig_ts[1,1,3,,],"Estimated Stimulation Uncertainty")
+rPlot <- plotLearnCurve(simEx.Full$Rmu_ts[1,1,3,,],"Estimated Reward")
+ruPlot <- plotLearnCurve(simEx.Full$Rsig_ts[1,1,3,,],"Estimated Reward Uncertainty")
+sPlot <- plotLearnCurve(simEx.Full$Smu_ts[1,1,3,,],"Estimated Stimulation Probability")
+suPlot <- plotLearnCurve(simEx.Full$Ssig_ts[1,1,3,,],"Estimated Stimulation Uncertainty")
+
+gLearningCurves <- arrangeGrob(rPlot,ruPlot,sPlot,suPlot,                               
+                  ncol = 2, nrow = 2, 
+                  layout_matrix = rbind(c(1,2), 
+                                        c(3,4))
+)
+as_ggplot(gLearningCurves)
+
 
 
 #Plot average score received
