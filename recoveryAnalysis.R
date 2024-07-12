@@ -62,31 +62,143 @@ rTheta <- data.frame(simTheta = theta,
 ggscatter(rFull, x = "simTheta", y = "rTheta", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
-          xlab = "Simulated Theta", ylab = "Recovered Theta")
+          xlab = "Simulated \u03b8", ylab = "Recovered \u03b8",
+          color="#0070c0",cor.coef.size = 7) +
+  theme_classic() + 
+  theme(text=element_text(size=20))
 
 ggscatter(rFull, x = "simOmega", y = "rOmega", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
-          xlab = "Simulated Omega", ylab = "Recovered Omega")
+          xlab = "Simulated \u03c9", ylab = "Recovered \u03c9",
+          color="#cc79a7",cor.coef.size = 7) +
+          theme_classic() + 
+          theme(text=element_text(size=20))
 
 ggscatter(rFull, x = "simTau", y = "rTau", 
           add = "reg.line", conf.int = TRUE, 
           cor.coef = TRUE, cor.method = "pearson",
-          xlab = "Simulated Tau", ylab = "Recovered Tau")
+          xlab = "Simulated \u03c4", ylab = "Recovered \u03c4",
+          color="#d55e00",cor.coef.size = 7) +
+          theme_classic() + 
+          theme(text=element_text(size=20))
+
+#Parm recovery for Omega model
+ggscatter(rOmega, x = "simOmega", y = "rOmega", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "Simulated \u03c9", ylab = "Recovered \u03c9",
+          color="#cc79a7",cor.coef.size = 7) +
+  theme_classic() + 
+  theme(text=element_text(size=20))
+
 
 
 #Model Comparison
+library("Rfast")
+#For genFull
+loo.genFull_fitFull <- loo(genFull_fitFull)
+loo.genFull_fitTheta <- loo(genFull_fitTheta)
+loo.genFull_fitOmega <- loo(genFull_fitOmega)
+#For genTheta
+loo.genTheta_fitFull <- loo(genTheta_fitFull)
+loo.genTheta_fitTheta <- loo(genTheta_fitTheta)
+loo.genTheta_fitOmega <- loo(genTheta_fitOmega)
+#For genOmega
+loo.genOmega_fitFull <- loo(genOmega_fitFull)
+loo.genOmega_fitTheta <- loo(genOmega_fitTheta)
+loo.genOmega_fitOmega <- loo(genOmega_fitOmega)
 
-loo.Obj <- loo(genFull_fitFull)
+fitMat <- matrix(NA,3,3)
 
-loo.Obj$pointwise[,4]
+fits.genFull <- matrix(0,nSub,3) 
+fits.genFull[,1]<-loo.genFull_fitFull$pointwise[,4]
+fits.genFull[,2]<-loo.genFull_fitTheta$pointwise[,4]
+fits.genFull[,3]<-loo.genFull_fitOmega$pointwise[,4]
+fitMat[1,] <- table(rowMins(fits.genFull))
+
+fits.genTheta <- matrix(0,nSub,3) 
+fits.genTheta[,1]<-loo.genTheta_fitFull$pointwise[,4]
+fits.genTheta[,2]<-loo.genTheta_fitTheta$pointwise[,4]
+fits.genTheta[,3]<-loo.genTheta_fitOmega$pointwise[,4]
+fitMat[2,] <- table(rowMins(fits.genTheta))
+
+fits.genOmega <- matrix(0,nSub,3) 
+fits.genOmega[,1]<-loo.genOmega_fitFull$pointwise[,4]
+fits.genOmega[,2]<-loo.genOmega_fitTheta$pointwise[,4]
+fits.genOmega[,3]<-loo.genOmega_fitOmega$pointwise[,4]
+fitMat[3,] <- table(rowMins(fits.genOmega))
+
+fitMat
+confusionMat <- fitMat/50
+
+invMat <- matrix(NA,3,3)
+
+for (i in 1:nrow(fitMat)){
+  for (j in 1:ncol(fitMat)){
+    invMat[i,j] <- fitMat[i,j]/sum(fitMat[,j])
+  }
+} 
 
 
-loo(genFull_fitOmega)
-loo(genFull_fitTheta)
+#DIC Plots
+Models <- c("Full","Omega","Theta")
+simData <- c("Full","Omega","Theta")
+
+logList <- list()
+nLLList <- list()
+DIClist <- list()
+
+fitMat <- matrix(NA,length(simData),length(Models))
+for (gen in 1:length(simData)){
+  fitList <- matrix(0,nSub,length(Models))
+  for (fit in 1:length(Models)){
+    
+    fitObj <- get(paste0("gen",simData[gen],"_fit",Models[fit]))
+    ex.fitObj <- rstan::extract(fitObj)
+    
+    deviance <-  -2*colMeans(ex.fitObj$log_lik)
+    varDeviance <- apply(ex.fitObj$log_lik, MARGIN = 2, FUN=function(i) var(-2*i))
+    fitList[,fit] = deviance + (0.5*varDeviance)
+  }
+  fitMat[gen,] <- tabulate(rowMins(fitList))
+}
+
+confusionMat <- fitMat/50
+
+#invMat <- matrix(NA,3,3)
+#
+#for (i in 1:nrow(fitMat)){
+#  for (j in 1:ncol(fitMat)){
+#    invMat[i,j] <- fitMat[i,j]/sum(fitMat[,j])
+#  }
+#} 
 
 
+plotTable <- function(mat,name){
+df <- data.frame(round(mat,2))
+rownames(df) <- c("Full","Omega","Theta")
+colnames(df) <- c("Full","Omega","Theta")
 
+df2 <- df %>% rownames_to_column() %>% gather(colname, value, -rowname) 
+head(df2)
 
+matFig <- ggplot(df2, aes(x = rowname, y = colname, fill = value)) +
+  geom_tile(color = "black") +
+  geom_text(aes(label = round(value,3)), color = "black", size = 6) +
+  labs(title=name,x="Recovered", y = "Simulated",size=15) +
+  scale_fill_distiller() +
+  #scale_fill_viridis_c(option="magma",guide = "none") +
+  theme(axis.text=element_text(size=15),
+        plot.title = element_text(size = 20, hjust = 0.5),
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        legend.position = 'none')+
+  coord_fixed()
 
+matFig
+}
+
+plotTable(confusionMat, "Confusion Matrix")
+plotTable(invMat, "Inversion Matrix")
 

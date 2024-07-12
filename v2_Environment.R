@@ -3,7 +3,7 @@ rm(list=ls())
 
 packages <- c("plyr", 'dplyr','tidyverse',  "ggplot2", 'pander', 'emmeans','sjPlot', 'lmerTest', 'data.table', "ggbeeswarm",
               'lmerTest',  'brms', 'BayesFactor', "gridExtra", "lsr",'ggridges','cowplot','entropy','zoo','Hmisc', 
-              'DescTools', 'magrittr', 'purrr', 'forcats', 'modelr', 'tidybayes', 'rstan' , 'loo', 'R.matlab','ggpubr','gridExtra')
+              'DescTools', 'magrittr', 'purrr', 'forcats', 'modelr', 'tidybayes', 'rstan' , 'loo', 'R.matlab','ggpubr','gridExtra','patchwork')
 invisible(lapply(packages, require, character.only = TRUE))
 
 sigma <- 2.5
@@ -123,17 +123,22 @@ simEx.Theta <- rstan::extract(sim.Theta)
 choice.Full <- simEx.Full$chosenObj[1,,,]
 optimal.Freq <- prop.table(table(choice.Full))
 
+choice.Omega <- simEx.Omega$chosenObj[1,,,]
+
+choice.Theta <- simEx.Theta$chosenObj[1,,,]
+
+
 #From full model params, index high low theta/omega
-lowTheta <- param.simFull$theta < median(param.simFull$theta)
-highTheta <- param.simFull$theta > median(param.simFull$theta)
-lowOmega <- param.simFull$omega < median(param.simFull$omega)
-highOmega <- param.simFull$omega > median(param.simFull$omega)
+lowTheta <- param.simTheta$theta < quantile(param.simTheta$theta,.25)
+highTheta <- param.simTheta$theta > quantile(param.simTheta$theta,.75)#median(param.simFull$theta)
+lowOmega <- param.simOmega$omega < quantile(param.simOmega$omega,.25)
+highOmega <- param.simOmega$omega > quantile(param.simOmega$omega,.75)#median(param.simOmega$omega)
 
-lowTheta.Freq <- prop.table(table(choice.Full[lowTheta,,]))
-highTheta.Freq <- prop.table(table(choice.Full[highTheta,,]))
+lowTheta.Freq <- prop.table(table(choice.Theta[lowTheta,,]))
+highTheta.Freq <- prop.table(table(choice.Theta[highTheta,,]))
 
-lowOmega.Freq <- prop.table(table(choice.Full[lowOmega,,]))
-highOmega.Freq <- prop.table(table(choice.Full[highOmega,,]))
+lowOmega.Freq <- prop.table(table(choice.Omega[lowOmega,,]))
+highOmega.Freq <- prop.table(table(choice.Omega[highOmega,,]))
 
 plotFreq <- function(table,name){
   mat <- matrix(NA, nrow = 3, ncol = 2)
@@ -173,6 +178,73 @@ gt <- arrangeGrob(f1,f2,f3,f4,f5,
                                         c(1,4,5))
                   )
 as_ggplot(gt)
+
+table2df <- function(table,name){
+  mat <- matrix(NA, nrow = 3, ncol = 2)
+  #row if stim, col is reward
+  mat[3,1] <- table[1]
+  mat[3,2] <- table[2]
+  mat[2,1] <- table[3]
+  mat[2,2] <- table[4]
+  mat[1,1] <- table[5]
+  mat[1,2] <- table[6]
+  df <- data.frame(mat)
+  rownames(df) <- c("0.85","0.5","0.15")
+  colnames(df) <- c("Low","High")
+  
+  df2 <- df %>% mutate(fixRewards = df$Low + df$High) %>% select(fixRewards) %>% rownames_to_column() %>% gather(fixedRewards, value, -rowname) 
+  head(df2)
+  
+  df2$value <- df2$value - 1/nrow(df2)
+  
+  print(df2) 
+  
+  #Alternative frequency plot
+  plotFig <- ggplot(df2, aes(x=rowname, y=value)) +
+    stat_summary(fun.y = mean, geom='bar', position =  position_dodge(width=0.8),alpha = 0.8, fill = '#40B0A6', width = 0.8) +
+    #stat_summary(fun.data = mean_se, geom= 'errorbar', color = 'black', width = .2, position =  position_dodge(width=0.8))+
+    theme_classic()+
+    #facet_wrap(~Conditions, nrow =1)+
+    xlab("p(stim)")+
+    geom_hline(yintercept = 0,linetype=1)+
+    ylab("p(choice)-p(chance)")+
+    ggtitle(name)+
+    scale_fill_manual(values =c("#E69F00", "#009E73"), name = '')+
+    scale_color_manual(values =c("#E69F00", "#009E73"), name = '')+
+    theme(legend.justification = c(1, 1), legend.box.margin=margin(c(0,0,0,0)),
+          legend.position = "none",#c(1, 1.1),
+          legend.key.height = unit(0.3, 'cm'),legend.key.width = unit(0.3, 'cm'),
+          legend.background=element_blank(), strip.background = element_blank(),
+          axis.title.x = element_text(size = 16),
+          axis.title.y = element_text(size = 16)#, legend.title = "Reward level",
+          )
+  plotFig
+  
+  return(plotFig)
+}
+g1 <- table2df(lowOmega.Freq, "Low Omega")
+g2 <- table2df(highOmega.Freq, "High Omega")
+g3 <- table2df(lowTheta.Freq, "Low Theta")
+g4 <- table2df(highTheta.Freq, "High Theta")
+
+#grid.arrange(g1,g2,g3,g4,ncol=4)
+tmp <- g1+g2+g3+g4 + plot_layout(ncol = 4,axis_titles = "collect")
+
+#Alternative frequency plot
+ggplot(dfreq, aes(x=rowname, y=value, fill=colname)) +
+  stat_summary(fun.y = mean, geom='bar', position =  position_dodge(width=0.8),alpha = 0.8, color = '#40B0A6', width = 0.8) +
+  #stat_summary(fun.data = mean_se, geom= 'errorbar', color = 'black', width = .2, position =  position_dodge(width=0.8))+
+  theme_classic()+
+  facet_wrap(~Conditions, nrow =1)+
+  xlab("Arms")+
+  geom_hline(yintercept = 0,linetype=1)+
+  ylab("p(choice)-p(chance)")+
+  ggtitle('Arm frequency')+
+  #scale_fill_manual(values =c("#E69F00", "#009E73"), name = '')+
+  #scale_color_manual(values =c("#E69F00", "#009E73"), name = '')+
+  theme(legend.justification = c(1, 1), legend.position = c(1, 1.1), legend.box.margin=margin(c(0,0,0,0)),
+        legend.key.height = unit(0.3, 'cm'),legend.key.width = unit(0.3, 'cm'),
+        legend.background=element_blank(), strip.background = element_blank(), legend.title = element_blank())
 
 #Function for learning curves
 
